@@ -7,9 +7,9 @@ import (
 	"path"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"gopkg.in/elazarl/goproxy.v1"
 	"gopkg.in/elazarl/goproxy.v1/transport"
-	log "github.com/Sirupsen/logrus"
 )
 
 // HttpLogger is an asynchronous HTTP request/response logger. It traces
@@ -22,7 +22,7 @@ type HttpLogger struct {
 	errch chan error
 }
 
-func NewFileLogger(basepath string) (*HttpLogger, error) {
+func NewHttpLogger(basepath string) (*HttpLogger, error) {
 	f, err := os.Create(path.Join(basepath, "log"))
 	if err != nil {
 		return nil, err

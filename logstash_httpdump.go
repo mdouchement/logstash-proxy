@@ -4,38 +4,16 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"sync"
-	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"gopkg.in/elazarl/goproxy.v1"
 	"gopkg.in/elazarl/goproxy.v1/transport"
-  log "github.com/Sirupsen/logrus"
 )
-
-type Meta struct {
-	req      *http.Request
-	resp     *http.Response
-	err      error
-	t        time.Time
-	sess     int64
-	bodyPath string
-	from     string
-}
-
-func fprintf(nr *int64, err *error, w io.Writer, pat string, a ...interface{}) {
-	if *err != nil {
-		return
-	}
-	var n int
-	n, *err = fmt.Fprintf(w, pat, a...)
-	*nr += int64(n)
-}
 
 // stoppableListener serves stoppableConn and tracks their lifetime to notify
 // when it is safe to terminate the application.
@@ -68,7 +46,7 @@ func (sc *stoppableConn) Close() error {
 }
 
 func main() {
-  log.SetFormatter(&log.TextFormatter{}) // For TTY
+	log.SetFormatter(&log.TextFormatter{}) // For TTY
 
 	verbose := flag.Bool("v", false, "should every proxy request be logged to stdout")
 	addr := flag.String("l", ":8080", "on which address should the proxy listen")
@@ -79,7 +57,7 @@ func main() {
 		log.Fatal("Can't create dir", err)
 	}
 
-	logger, err := NewFileLogger("db")
+	logger, err := NewLogstashLogger("db") // ----------------------------------------------
 	if err != nil {
 		log.Fatal("can't open log file", err)
 	}

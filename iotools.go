@@ -1,12 +1,13 @@
 package main
 
 import (
-	"os"
-	"io"
 	"errors"
 	"fmt"
-	"net/http/httputil"
+	"io"
+	"os"
 )
+
+// ======== FILE STREAM
 
 type FileStream struct {
 	path string
@@ -27,6 +28,16 @@ func (fs *FileStream) Write(b []byte) (nr int, err error) {
 	return fs.f.Write(b)
 }
 
+func (fs *FileStream) Read(b []byte) (nr int, err error) {
+	if fs.f == nil {
+		fs.f, err = os.Open(fs.path)
+		if err != nil {
+			return 0, err
+		}
+	}
+	return fs.f.Read(b)
+}
+
 func (fs *FileStream) Close() error {
 	fmt.Println("Close", fs.path)
 	if fs.f == nil {
@@ -34,6 +45,8 @@ func (fs *FileStream) Close() error {
 	}
 	return fs.f.Close()
 }
+
+// ======== GENERICS
 
 func write(nr *int64, err *error, w io.Writer, b []byte) {
 	if *err != nil {
@@ -44,34 +57,17 @@ func write(nr *int64, err *error, w io.Writer, b []byte) {
 	*nr += int64(n)
 }
 
-func (m *Meta) WriteTo(w io.Writer) (nr int64, err error) {
-	if m.req != nil {
-		fprintf(&nr, &err, w, "Type: request\r\n")
-	} else if m.resp != nil {
-		fprintf(&nr, &err, w, "Type: response\r\n")
+func fprintf(nr *int64, err *error, w io.Writer, pat string, a ...interface{}) {
+	if *err != nil {
+		return
 	}
-	fprintf(&nr, &err, w, "ReceivedAt: %v\r\n", m.t)
-	fprintf(&nr, &err, w, "Session: %d\r\n", m.sess)
-	fprintf(&nr, &err, w, "From: %v\r\n", m.from)
-	if m.err != nil {
-		// note the empty response
-		fprintf(&nr, &err, w, "Error: %v\r\n\r\n\r\n\r\n", m.err)
-	} else if m.req != nil {
-		fprintf(&nr, &err, w, "\r\n")
-		buf, err2 := httputil.DumpRequest(m.req, false)
-		if err2 != nil {
-			return nr, err2
-		}
-		write(&nr, &err, w, buf)
-	} else if m.resp != nil {
-		fprintf(&nr, &err, w, "\r\n")
-		buf, err2 := httputil.DumpResponse(m.resp, false)
-		if err2 != nil {
-			return nr, err2
-		}
-		write(&nr, &err, w, buf)
-	}
-	return
+	var n int
+	n, *err = fmt.Fprintf(w, pat, a...)
+	*nr += int64(n)
+}
+
+func sprintf(pattern string, a ...interface{}) string {
+	return fmt.Sprintf(pattern, a...)
 }
 
 // TeeReadCloser extends io.TeeReader by allowing reader and writer to be
