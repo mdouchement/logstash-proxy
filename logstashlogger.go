@@ -1,14 +1,12 @@
 package main
 
 import (
-	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"gopkg.in/elazarl/goproxy.v1"
 	"gopkg.in/elazarl/goproxy.v1/transport"
+	"io"
 	"net/http"
-	"path"
 	"time"
-	// "io"
 )
 
 type LogstashLogger struct {
@@ -30,10 +28,10 @@ func NewLogstashLogger(basepath string) (*LogstashLogger, error) {
 				// Fix body streaming. Using a file causes `no such file or directory' because the other routine does not write the file yet`
 				// User another kind of stream
 
-				bodyPath := path.Join(logger.path, fmt.Sprintf("%v_resp", fields["session"]))
 				buf := []byte{}
-				if _, err2 := NewFileStream(bodyPath).Read(buf); err2 != nil {
-					// if _, err2 := io.LimitReader(bodyReader, 8192).Read(buf); err2 != nil {
+				log.Info("HERE ===== 1")
+				if _, err2 := m.Body().Read(buf); err2 != nil {
+				// if _, err2 := io.LimitReader(m.Body(), 8192).Read(buf); err2 != nil {
 					log.Info("==================Empty ", err2)
 					log.WithFields(fields).Info("")
 				} else {
@@ -44,6 +42,7 @@ func NewLogstashLogger(basepath string) (*LogstashLogger, error) {
 				}
 			}
 		}
+		log.Info("HERE ===== 2")
 		// logger.errch <- f.Close()
 	}()
 
@@ -51,7 +50,7 @@ func NewLogstashLogger(basepath string) (*LogstashLogger, error) {
 }
 
 func (logger *LogstashLogger) LogResp(resp *http.Response, ctx *goproxy.ProxyCtx) {
-	body := path.Join(logger.path, fmt.Sprintf("%d_resp", ctx.Session))
+	r, w := io.Pipe()
 	from := ""
 	if ctx.UserData != nil {
 		from = ctx.UserData.(*transport.RoundTripDetails).TCPAddr.String()
@@ -59,29 +58,31 @@ func (logger *LogstashLogger) LogResp(resp *http.Response, ctx *goproxy.ProxyCtx
 	if resp == nil {
 		resp = emptyResp
 	} else {
-		resp.Body = NewTeeReadCloser(resp.Body, NewFileStream(body))
+		resp.Body = NewTeeReadCloser(resp.Body, NewLinkedStream(r, w))
 	}
 	logger.LogMeta(&Meta{
 		resp: resp,
 		err:  ctx.Error,
 		t:    time.Now(),
 		sess: ctx.Session,
-		from: from})
+		from: from,
+		body: r})
 }
 
 func (logger *LogstashLogger) LogReq(req *http.Request, ctx *goproxy.ProxyCtx) {
-	body := path.Join(logger.path, fmt.Sprintf("%d_req", ctx.Session))
+	r, w := io.Pipe()
 	if req == nil {
 		req = emptyReq
 	} else {
-		req.Body = NewTeeReadCloser(req.Body, NewFileStream(body))
+		req.Body = NewTeeReadCloser(req.Body, NewLinkedStream(r, w))
 	}
 	logger.LogMeta(&Meta{
 		req:  req,
 		err:  ctx.Error,
 		t:    time.Now(),
 		sess: ctx.Session,
-		from: req.RemoteAddr})
+		from: req.RemoteAddr,
+		body: r})
 }
 
 func (logger *LogstashLogger) LogMeta(m *Meta) {

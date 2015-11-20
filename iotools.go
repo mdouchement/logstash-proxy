@@ -28,22 +28,35 @@ func (fs *FileStream) Write(b []byte) (nr int, err error) {
 	return fs.f.Write(b)
 }
 
-func (fs *FileStream) Read(b []byte) (nr int, err error) {
-	if fs.f == nil {
-		fs.f, err = os.Open(fs.path)
-		if err != nil {
-			return 0, err
-		}
-	}
-	return fs.f.Read(b)
-}
-
 func (fs *FileStream) Close() error {
 	fmt.Println("Close", fs.path)
 	if fs.f == nil {
 		return errors.New("FileStream was never written into")
 	}
 	return fs.f.Close()
+}
+
+// ======== LINKED STREAM
+
+type LinkedStream struct {
+	r io.Reader
+	w io.WriteCloser
+}
+
+func NewLinkedStream(r io.Reader, w io.WriteCloser) *LinkedStream {
+	return &LinkedStream{r, w}
+}
+
+func (ls *LinkedStream) Write(b []byte) (nr int, err error) {
+	return ls.w.Write(b)
+}
+
+func (ls *LinkedStream) Close() error {
+	fmt.Println("Close")
+	if ls.w == nil {
+		return errors.New("LinkedStream was never written into")
+	}
+	return ls.w.Close()
 }
 
 // ======== GENERICS

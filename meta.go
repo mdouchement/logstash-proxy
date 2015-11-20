@@ -16,6 +16,11 @@ type Meta struct {
 	sess     int64
 	bodyPath string
 	from     string
+	body     io.Reader
+}
+
+func (m *Meta) Body() io.Reader {
+	return m.body
 }
 
 func (m *Meta) WriteTo(w io.Writer) (nr int64, err error) {
